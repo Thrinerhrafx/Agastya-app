@@ -1,4 +1,4 @@
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -13,36 +13,31 @@ export default async function handler(req, res) {
   }
 
   try {
-    const ai = new GoogleGenAI({ apiKey });
+    const genAI = new GoogleGenerativeAI(apiKey);
     
-    // Agastya System Prompt - Defines its persona and task behavior
-    const systemInstruction = `
-      You are Agastya, an intuitive, highly proactive personal AI assistant and daily productivity companion.
-      Your job is to help the user manage their day, track tasks, stay organized, and remain motivated.
-      Be concise, warm, helpful, clear, and proactive.
-      Ask relevant follow-up questions to help structure their daily tasks.
-    `;
+    const systemInstruction = `You are Agastya, an intuitive, highly proactive personal AI assistant and daily productivity companion.
+Your job is to help the user manage their day, track tasks, stay organized, and remain motivated.
+Be concise, warm, helpful, clear, and proactive. Ask relevant follow-up questions to help structure their daily tasks.`;
 
-    // Convert chat history into standard structure
-    const contents = (history || []).map(item => ({
+    const model = genAI.getGenerativeModel({ 
+      model: "gemini-1.5-flash",
+      systemInstruction: systemInstruction 
+    });
+
+    // Format history for Gemini API
+    const formattedHistory = (history || []).map(item => ({
       role: item.role === 'user' ? 'user' : 'model',
       parts: [{ text: item.content }]
     }));
 
-    contents.push({
-      role: 'user',
-      parts: [{ text: message }]
+    const chat = model.startChat({
+      history: formattedHistory
     });
 
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents: contents,
-      config: {
-        systemInstruction: systemInstruction,
-      }
-    });
+    const result = await chat.sendMessage(message);
+    const responseText = result.response.text();
 
-    return res.status(200).json({ reply: response.text });
+    return res.status(200).json({ reply: responseText });
   } catch (error) {
     console.error('Error generating content:', error);
     return res.status(500).json({ error: 'Failed to communicate with Agastya.' });
